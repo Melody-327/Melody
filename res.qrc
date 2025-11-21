@@ -1,0 +1,23 @@
+<RCC>
+    <qresource prefix="/">
+        <file>imp/build_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.png</file>
+        <file>imp/content_cut_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.png</file>
+        <file>imp/content_paste_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.png</file>
+        <file>imp/detector_status_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.png</file>
+        <file>imp/draft_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.png</file>
+        <file>imp/file_copy_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.png</file>
+        <file>imp/file_open_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24 (1).png</file>
+        <file>imp/file_open_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.png</file>
+        <file>imp/file_save_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.png</file>
+        <file>imp/files_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.png</file>
+        <file>imp/find_in_page_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.png</file>
+        <file>imp/find_replace_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.png</file>
+        <file>imp/font_download_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.png</file>
+        <file>imp/go_to_line_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.png</file>
+        <file>imp/list_alt_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.png</file>
+        <file>imp/print_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.png</file>
+        <file>imp/redo_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.png</file>
+        <file>imp/save_as_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.png</file>
+        <file>imp/undo_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.png</file>
+    </qresource>
+</RCC>
