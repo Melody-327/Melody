@@ -1,63 +1,22 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
-#include "aboutdialog.h"
-#include "searchdialog.h"
-#include "replacedialog.h"
-#include <QFileDialog>
-#include <QMessageBox>
-#include <QTextStream>
-#include <QFileInfo>
-#include <QColorDialog>
-#include <QFontDialog>
+#include<QHostAddress>
+#include<QJsonValue>
+#include<QJsonObject>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
+    ui->stackedWidget->setCurrentWidget(ui->loginPage);
+    m_chatClient=new ChatClient(this);
 
-    textChanged = false;
-    on_actionNew_triggered();
-
-    statusLabel.setMaximumWidth(180);
-    statusLabel.setText("length:  " + QString::number(0) + "    lines: " + QString::number(1));
-    ui->statusbar->addPermanentWidget(&statusLabel);
+    connect(m_chatClient,&ChatClient::connected,this,&MainWindow::connectedToServer);
+//    connect(m_chatClient,&ChatClient::messageReceived,this,&MainWindow::messageReceived);
+    connect(m_chatClient,&ChatClient::jsonReceived,this,&MainWindow::jsonReceived);
 
 
-    statusCursorLabel.setMaximumWidth(180);
-    statusCursorLabel.setText("LN:  " + QString::number(0) + "    Col: " + QString::number(1));
-    ui->statusbar->addPermanentWidget(&statusCursorLabel);
-
-    QLabel *author=new QLabel(ui->statusbar);
-    author->setText(tr("许梓佳"));
-    ui->statusbar->addPermanentWidget(author);
-
-    ui->actionCopy->setEnabled(false);
-    ui->actionRedo->setEnabled(false);
-    ui->actionUndo->setEnabled(false);
-    ui->actionCut->setEnabled(false);
-    ui->actionPaste->setEnabled(false);
-
-    QPlainTextEdit::LineWrapMode mode = ui->textEdit->lineWrapMode();
-
-    if(mode==QTextEdit::NoWrap){
-        ui->textEdit->setLineWrapMode(QPlainTextEdit::WidgetWidth);
-
-        ui->actionLineWrap->setChecked(false);
-    }else{
-        ui->textEdit->setLineWrapMode(QPlainTextEdit::NoWrap);
-
-        ui->actionLineWrap->setChecked(true);
-    }
-
-    ui->actionShowToolBar->setChecked(true);
-    ui->actionShowStatusBar->setChecked(true);
-}
-
-void MainWindow::on_actionReplace_triggered()
-{
-    ReplaceDialog dlg(this,ui->textEdit);
-    dlg.exec();
 }
 
 MainWindow::~MainWindow()
@@ -65,298 +24,110 @@ MainWindow::~MainWindow()
     delete ui;
 }
 
-void MainWindow::on_actionAbout_triggered()
+void MainWindow::on_loginButton_clicked()
 {
-    AboutDialog dlg;
-    dlg.exec();
-}
-
-void MainWindow::on_actionFind_triggered()
-{
-    SearchDialog dlg(this,ui->textEdit);
-    dlg.exec();
-}
-
-
-void MainWindow::on_actionUndo_triggered()
-{
-    ui->textEdit->undo();
+    m_chatClient->connectToserver(QHostAddress(ui->serverEdit->text()),2004);
+    for(auto aItem:ui->userListWidget->findItems(ui->usernameEdit->text(),Qt::MatchExactly)){
+        qDebug("remove");
+        ui->userListWidget->removeItemWidget(aItem);
+        delete aItem;
+    }
 }
 
 
-void MainWindow::on_actionCut_triggered()
+void MainWindow::on_sayButton_clicked()
 {
-    ui->textEdit->cut();
-    ui->actionPaste->setEnabled(true);
-}
+    if(!ui->sayLineEdit->text().isEmpty())
+        m_chatClient->sendMessage(ui->sayLineEdit->text());
 
-void MainWindow::on_actionCopy_triggered()
-{
-    ui->textEdit->copy();
-    ui->actionPaste->setEnabled(true);
 }
 
 
-void MainWindow::on_actionPaste_triggered()
+void MainWindow::on_logoutButton_clicked()
 {
-    ui->textEdit->paste();
+    m_chatClient->disconnectFromHost();
+    ui->stackedWidget->setCurrentWidget(ui->loginPage);
+
+}
+
+void MainWindow::connectedToServer()
+{
+    ui->stackedWidget->setCurrentWidget(ui->chatPage);
+    m_chatClient->sendMessage(ui->usernameEdit->text(),"login");
+
+
+
+}
+
+void MainWindow::messageReceived(const QString &sender, const QString &text)
+{
+    ui->roomTexitEdit->append(QString("%1:%2").arg(sender).arg(text));
 }
 
 
-void MainWindow::on_actionRedo_triggered()
+
+void MainWindow::jsonReceived(const QJsonObject &docObj)
 {
-    ui->textEdit->redo();
-}
-
-
-void MainWindow::on_textEdit_undoAvailable(bool b)
-{
-    ui->actionUndo->setEnabled(b);
-}
-
-
-void MainWindow::on_textEdit_copyAvailable(bool b)
-{
-    ui->actionCopy->setEnabled(b);
-    ui->actionCut->setEnabled(b);
-}
-
-
-void MainWindow::on_textEdit_redoAvailable(bool b)
-{
-    ui->actionRedo->setEnabled(b);
-}
-
-
-void MainWindow::on_actionNew_triggered()
-{
-    if (!userEditConfirmed())
+    const QJsonValue typeVal = docObj.value("type");
+    if (typeVal.isNull() || !typeVal.isString())
         return;
+    if (typeVal.toString().compare("message", Qt::CaseInsensitive) == 0) {
+        const QJsonValue textVal = docObj.value("text");
+        const QJsonValue senderVal=docObj.value("sender");
 
-    filePath="";
-    ui->textEdit->clear();
-    this->setWindowTitle(tr("新建文本文件-编辑器"));
-    textChanged = false;
-}
+        if (textVal.isNull() || !textVal.isString())
+            return;
+
+        if(senderVal.isNull() || !senderVal.isString())
+            return;
 
 
-void MainWindow::on_actionOpen_triggered()
-{
-    if(!userEditConfirmed())
-        return;
+        messageReceived(senderVal.toString(),textVal.toString());
 
-    QString filename = QFileDialog::getOpenFileName(this, "打开文件", ".",
-                                                    tr("Text files (*.txt);;All Files (*.*)"));
-    QFile file(filename);
+    }else if(typeVal.toString().compare("newuser",Qt::CaseInsensitive)==0){
+        const QJsonValue usernameVal=docObj.value("username");
+        if(usernameVal.isNull()||!usernameVal.isString())
+            return;
 
-    if (!file.open(QFile::ReadOnly | QFile::Text)) {
-        QMessageBox::warning(this, "..", "打开文件失败");
-        return;
+        userJoined(usernameVal.toString());
     }
+    else if(typeVal.toString().compare("userdisconnected",Qt::CaseInsensitive)==0){
+        const QJsonValue usernameVal=docObj.value("username");
+        if(usernameVal.isNull()||!usernameVal.isString())
+            return;
 
-    filePath = filename;
-
-    QTextStream in(&file);
-    QString text = in.readAll();
-    ui->textEdit->insertPlainText(text);
-    file.close();
-
-    this->setWindowTitle(QFileInfo(filename).absoluteFilePath());
-
-    textChanged=false;
-}
-
-
-void MainWindow::on_actionSave_triggered()
-{
-    if(filePath==""){
-            QString filename=QFileDialog::getSaveFileName(this,"保存文件",".",
-                                                            tr("Text files (*.txt)"));
-            QFile file(filename);
-            if (!file.open(QFile::WriteOnly | QFile::Text)){
-                QMessageBox::warning(this,"..","打开保存文件失败");
-                return;
-            }
-            file.close();
-            filePath=filename;
+        userLeft(usernameVal.toString());
     }
-    QFile file(filePath);
+    else if(typeVal.toString().compare("userlist",Qt::CaseInsensitive)==0){
 
-    if(!file.open(QFile::WriteOnly|QFile::Text)){
+        const QJsonValue userlistVal=docObj.value("userlist");
+        if(userlistVal.isNull()||!userlistVal.isArray())
+            return;
 
-        QMessageBox::warning(this,"..","打开保存文件失败");
-        return;
-    }
-
-    QTextStream out(&file);
-    QString text=ui->textEdit->toPlainText();
-    out<<text;
-    file.flush();
-    file.close();
-
-    this->setWindowTitle(QFileInfo(filePath).absoluteFilePath());
-
-    textChanged =false;
-}
-
-
-void MainWindow::on_actionSaveAs_triggered()
-{
-    QString filename=QFileDialog::getSaveFileName(this,"保存文件",".",
-                                                    tr("Text files (*.txt)"));
-    QFile file(filename);
-    if(!file.open(QFile::WriteOnly|QFile::Text)){
-
-        QMessageBox::warning(this,"..","打开保存文件失败");
-        return;
-    }
-
-    filePath=filename;
-    QTextStream out(&file);
-    QString text=ui->textEdit->toPlainText();
-    out<<text;
-    file.flush();
-    file.close();
-
-    this->setWindowTitle(QFileInfo(filePath).absoluteFilePath());
-}
-
-
-void MainWindow::on_textEdit_textChanged()
-{
-    if(!textChanged){
-        this->setWindowTitle("*"+this->windowTitle());
-        textChanged=true;
-    }
-
-    statusLabel.setText("length:  " + QString::number(ui->textEdit->toPlainText().length()) + "    lines: " +
-                        QString::number(ui->textEdit->document()->lineCount()));
-}
-
-bool MainWindow::userEditConfirmed()
-{
-    if(textChanged){
-
-        QString path=(filePath!="")? filePath:"无标题.txt";
-
-        QMessageBox msg(this);
-        msg.setIcon(QMessageBox::Question);
-        msg.setWindowTitle("...");
-        msg.setWindowFlag(Qt::Drawer);
-        msg.setText(QString("是否将更改保存到\n")+"\""+path+"\"?");
-        msg.setStandardButtons(QMessageBox::Yes|QMessageBox::No|QMessageBox::Cancel);
-        int r =msg.exec();
-        switch(r){
-        case QMessageBox::Yes:
-            on_actionSave_triggered();
-            break;
-        case QMessageBox::No:
-            textChanged=false;
-            break;
-        case QMessageBox::Cancel:
-            return false;
-        }
-    }
-
-    return true;
-}
-
-void MainWindow::on_actionFontColor_triggered()
-{
-    QColor color = QColorDialog::getColor(Qt::black,this,"选择颜色");
-    if(color.isValid()){
-        ui->textEdit->setStyleSheet(QString("QPlainTextEdit{color:%1}").arg(color.name()));
+        qDebug()<<userlistVal.toVariant().toStringList();
+        userlistReceived(userlistVal.toVariant().toStringList());
     }
 }
 
-
-void MainWindow::on_actionbackgroundColor_triggered()
+void MainWindow::userJoined(const QString &user)
 {
-    QColor color = QColorDialog::getColor(Qt::black,this,"选择颜色");
-    if(color.isValid()){
-        ui->textEdit->setStyleSheet(QString("QPlainTextEdit{background-color:%1}").arg(color.name()));
+    ui->userListWidget->addItem(user);
+}
+
+void MainWindow::userLeft(const QString &user)
+{
+    for(auto aItem:ui->userListWidget->findItems(user,Qt::MatchExactly)){
+        qDebug("remove");
+        ui->userListWidget->removeItemWidget(aItem);
+        delete aItem;
     }
 }
 
-
-void MainWindow::on_actionFontBackgroundColor_triggered()
+void MainWindow::userlistReceived(const QStringList &list)
 {
-
+    ui->userListWidget->clear();
+    ui->userListWidget->addItems(list);
 }
 
 
-void MainWindow::on_actionLineWrap_triggered()
-{
-    QPlainTextEdit::LineWrapMode mode = ui->textEdit->lineWrapMode();
-
-    if(mode == QTextEdit::NoWrap){
-        ui->textEdit->setLineWrapMode(QPlainTextEdit::WidgetWidth);
-
-        ui->actionLineWrap->setChecked(true);
-    }else{
-        ui->textEdit->setLineWrapMode(QPlainTextEdit::NoWrap);
-
-        ui->actionLineWrap->setChecked(false);
-    }
-}
-
-
-void MainWindow::on_actionFont_triggered()
-{
-    bool ok =false;
-        QFont font=QFontDialog::getFont(&ok,this);
-
-    if(ok)
-        ui->textEdit->setFont(font);
-}
-
-
-void MainWindow::on_actionToolBar_triggered()
-{
-    bool visible = ui->toolBar->isVisible();
-    ui->toolBar->setVisible(!visible);
-    ui->actionShowToolBar->setChecked(!visible);
-}
-
-
-void MainWindow::on_actionStatusBar_triggered()
-{
-    bool visible = ui->statusbar->isVisible();
-    ui->statusbar->setVisible(!visible);
-    ui->actionShowStatusBar->setChecked(!visible);
-}
-
-
-void MainWindow::on_actionSelectAll_triggered()
-{
-    ui->textEdit->selectAll();
-}
-
-
-void MainWindow::on_actionExit_triggered()
-{
-    if(userEditConfirmed())
-        exit(0);
-}
-
-
-void MainWindow::on_textEdit_cursorPositionChanged()
-{
-    int col=0;
-    int ln=0;
-    int flg=-1;
-    int pos=ui->textEdit->textCursor().position();
-    QString text=ui->textEdit->toPlainText();
-
-    for(int i=0;i<pos;i++){
-        if(text[i]=='\n'){
-            ln++;
-            flg=i;
-        }
-    }
-
-    flg++;
-    col=pos-flg;
-    statusCursorLabel.setText("Ln: "+QString::number(ln+1)+"  Col:"+QString::number(col+1));
-}
 

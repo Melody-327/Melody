@@ -2,7 +2,7 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
-#include <QLabel>
+#include<chatclient.h>
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -18,70 +18,25 @@ public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
 
-    bool getUserEditConfiremed() const;
-
 private slots:
-    void on_actionAbout_triggered();
+    void on_loginButton_clicked();
 
-    void on_actionReplace_triggered();
+    void on_sayButton_clicked();
 
-    void on_actionFind_triggered();
+    void on_logoutButton_clicked();
 
-    void on_actionUndo_triggered();
+    void connectedToServer();
 
-    void on_actionCut_triggered();
+    void messageReceived(const QString &sender,const QString &text);
+    void jsonReceived(const QJsonObject &docObj);
+    void userJoined(const QString &user);
+    void userLeft(const QString &user);
+    void userlistReceived(const QStringList &list);
 
-    void on_actionCopy_triggered();
-
-    void on_actionPaste_triggered();
-
-    void on_actionRedo_triggered();
-
-    void on_textEdit_undoAvailable(bool b);
-
-    void on_textEdit_copyAvailable(bool b);
-
-    void on_textEdit_redoAvailable(bool b);
-
-    void on_actionNew_triggered();
-
-    void on_actionOpen_triggered();
-
-    void on_actionSave_triggered();
-
-    void on_actionSaveAs_triggered();
-
-    void on_textEdit_textChanged();
-
-    void on_actionFontColor_triggered();
-
-    void on_actionbackgroundColor_triggered();
-
-    void on_actionFontBackgroundColor_triggered();
-
-    void on_actionLineWrap_triggered();
-
-    void on_actionFont_triggered();
-
-    void on_actionToolBar_triggered();
-
-    void on_actionStatusBar_triggered();
-
-    void on_actionSelectAll_triggered();
-
-    void on_actionExit_triggered();
-
-    void on_textEdit_cursorPositionChanged();
 
 private:
     Ui::MainWindow *ui;
 
-    QLabel statusCursorLabel;
-    QLabel statusLabel;
-
-    QString filePath;
-    bool textChanged;
-
-    bool userEditConfirmed();
+    ChatClient *m_chatClient;
 };
 #endif // MAINWINDOW_H
